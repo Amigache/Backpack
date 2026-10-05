@@ -272,6 +272,13 @@ void ProcessMSPPacketFromTX(mspPacket_t *packet)
     HandleConfigMsg(packet);
     break;
 
+  case MSP_ELRS_BACKPACK_FORGET_TRAINER:
+    DBGLN("Processing MSP_ELRS_BACKPACK_FORGET_TRAINER...");
+#if defined(HAS_BLE_TRAINER)
+    bleTrainerForgetPeer();
+#endif
+    break;
+
   case MSP_ELRS_BIND:
     DBG("MSP_ELRS_BIND = ");
     for (int i = 0; i < 6; i++)

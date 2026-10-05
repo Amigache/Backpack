@@ -26,6 +26,7 @@
 // Config opcodes
 #define MSP_ELRS_BACKPACK_CONFIG                0x30
 #define MSP_ELRS_BACKPACK_CONFIG_TLM_MODE       0x31
+#define MSP_ELRS_BACKPACK_FORGET_TRAINER        0x32  // tell the TX backpack to unpair its BLE trainer
 
 // CRSF encapsulated msp defines
 #define ENCAPSULATED_MSP_PAYLOAD_SIZE           4
