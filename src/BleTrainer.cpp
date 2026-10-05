@@ -117,13 +117,21 @@ static void frskyProcessNotification(const uint8_t *data, size_t len)
 static NimBLEScan *s_scan = nullptr;
 static NimBLEClient *s_client = nullptr;
 static volatile bool s_connected = false;
-static volatile bool s_found = false;
 static volatile bool s_forget = false;
-static volatile bool s_pairing = false;
 static volatile bool s_enabled = false;
 static bool s_initialized = false;
-static NimBLEAddress s_foundAddr;
-static int s_bestRssi = -127;
+static volatile bool s_scanRequest = false;
+static volatile bool s_scanReport = false;
+static volatile bool s_pairRequest = false;
+static uint8_t s_pairMac[6];
+static uint8_t s_pairType = 0;
+
+// Scan results (manual pairing: scan and pick a device).
+#define TRAINER_SCAN_MAX 6
+static uint8_t s_scanMacs[TRAINER_SCAN_MAX][6];
+static uint8_t s_scanTypes[TRAINER_SCAN_MAX];
+static int8_t  s_scanRssi[TRAINER_SCAN_MAX];
+static volatile uint8_t s_scanCount = 0;
 
 // Retained-RAM diagnostic: the Nomad has no console, so the count of forwarded
 // trainer packets survives reboots and is read from /config.
@@ -178,16 +186,27 @@ class TrainerScanCb : public NimBLEAdvertisedDeviceCallbacks
 {
     void onResult(NimBLEAdvertisedDevice *dev) override
     {
-        if (dev->isAdvertisingService(NimBLEUUID((uint16_t)0xFFF0)))
-        {
-            const int rssi = dev->getRSSI();
-            if (rssi > s_bestRssi)
-            {
-                s_bestRssi = rssi;
-                s_foundAddr = dev->getAddress();
-            }
-            s_found = true;
-        }
+        if (!dev->isAdvertisingService(NimBLEUUID((uint16_t)0xFFF0)))
+            return;
+
+        // Store the address in canonical (MSB-first) order: the
+        // NimBLEAddress(uint8_t[6]) constructor reverses it back.
+        const uint8_t *raw = dev->getAddress().getNative();
+        uint8_t mac[6];
+        for (int i = 0; i < 6; i++) mac[i] = raw[5 - i];
+
+        // De-duplicate
+        for (int i = 0; i < s_scanCount; i++)
+            if (memcmp(s_scanMacs[i], mac, 6) == 0)
+                return;
+
+        if (s_scanCount >= TRAINER_SCAN_MAX)
+            return;
+
+        memcpy(s_scanMacs[s_scanCount], mac, 6);
+        s_scanTypes[s_scanCount] = dev->getAddress().getType();
+        s_scanRssi[s_scanCount] = (int8_t)dev->getRSSI();
+        s_scanCount++;
     }
 };
 
@@ -235,48 +254,32 @@ static void bleTask(void *)
             s_connected = false;
         }
 
-        if (!s_connected)
+        // Manual scan: collect advertisers and report the list to the module.
+        if (s_scanRequest)
         {
-            bool ok = false;
-            if (config.IsTrainerPaired())
-            {
-                // Auto-connect to the paired peer. Pairing is manual, so the
-                // stored MAC is never dropped automatically.
-                NimBLEAddress addr(config.GetTrainerPeerMac(), config.GetTrainerPeerType());
-                ok = s_client->connect(addr);
-            }
-            else if (s_pairing)
-            {
-                // Manual pairing: scan and pair with the strongest advertiser.
-                s_pairing = false;
-                s_found = false;
-                s_bestRssi = -127;
-                s_scan->start(3, false);
-                if (s_found)
-                {
-                    ok = s_client->connect(s_foundAddr);
-                    if (ok)
-                    {
-                        // Store the address in canonical (MSB-first) order: the
-                        // NimBLEAddress(uint8_t[6]) constructor reverses it back.
-                        uint8_t mac[6];
-                        const uint8_t *raw = s_foundAddr.getNative();
-                        for (int i = 0; i < 6; i++) mac[i] = raw[5 - i];
-                        config.SetTrainerPeerMac(mac);
-                        config.SetTrainerPeerType(s_foundAddr.getType());
-                        config.Commit();
-                    }
-                }
-            }
-            else
-            {
-                // Not paired and not asked to pair: idle.
-                vTaskDelay(pdMS_TO_TICKS(500));
-                continue;
-            }
+            s_scanRequest = false;
+            if (s_client->isConnected())
+                s_client->disconnect();
+            s_connected = false;
+            s_scanCount = 0;
+            s_scan->start(3, false);
+            s_scanReport = true;
+            continue;
+        }
 
-            if (ok && subscribeTrainer())
+        // Manual pairing with a specific device chosen from the scan list.
+        if (s_pairRequest)
+        {
+            s_pairRequest = false;
+            if (s_client->isConnected())
+                s_client->disconnect();
+            s_connected = false;
+            NimBLEAddress addr(s_pairMac, s_pairType);
+            if (s_client->connect(addr) && subscribeTrainer())
             {
+                config.SetTrainerPeerMac(s_pairMac);
+                config.SetTrainerPeerType(s_pairType);
+                config.Commit();
                 s_gotFrame = false;
                 s_connected = true;
                 // The trainer requests its own parameters from its connection
@@ -289,6 +292,35 @@ static void bleTask(void *)
                 if (s_client->isConnected())
                     s_client->disconnect();
                 vTaskDelay(pdMS_TO_TICKS(2000));
+            }
+            continue;
+        }
+
+        if (!s_connected)
+        {
+            if (config.IsTrainerPaired())
+            {
+                // Auto-connect to the paired peer. Pairing is manual, so the
+                // stored MAC is never dropped automatically.
+                NimBLEAddress addr(config.GetTrainerPeerMac(), config.GetTrainerPeerType());
+                if (s_client->connect(addr) && subscribeTrainer())
+                {
+                    s_gotFrame = false;
+                    s_connected = true;
+                    vTaskDelay(pdMS_TO_TICKS(TRAINER_CONN_PARAM_DELAY_MS));
+                    applyConnParams();
+                }
+                else
+                {
+                    if (s_client->isConnected())
+                        s_client->disconnect();
+                    vTaskDelay(pdMS_TO_TICKS(2000));
+                }
+            }
+            else
+            {
+                // Not paired and nothing requested: idle.
+                vTaskDelay(pdMS_TO_TICKS(500));
             }
         }
         else
@@ -334,9 +366,16 @@ void bleTrainerSetEnabled(bool enable)
         initBle();
 }
 
-void bleTrainerPair()
+void bleTrainerScan()
 {
-    s_pairing = true;
+    s_scanRequest = true;
+}
+
+void bleTrainerPairMac(const uint8_t mac[6], uint8_t type)
+{
+    memcpy(s_pairMac, mac, 6);
+    s_pairType = type;
+    s_pairRequest = true;
 }
 
 void bleTrainerForgetPeer()
@@ -378,8 +417,31 @@ static int event()
     return DURATION_IGNORE;
 }
 
+static void sendScanReport()
+{
+    mspPacket_t packet;
+    packet.reset();
+    packet.makeCommand();
+    packet.function = MSP_ELRS_BACKPACK_TRAINER_SCAN;
+    packet.addByte(s_scanCount);
+    for (int i = 0; i < s_scanCount; i++)
+    {
+        for (int j = 0; j < 6; j++)
+            packet.addByte(s_scanMacs[i][j]);
+        packet.addByte(s_scanTypes[i]);
+        packet.addByte((uint8_t)s_scanRssi[i]);
+    }
+    msp.sendPacket(&packet, &Serial);
+}
+
 static int timeout()
 {
+    if (s_scanReport)
+    {
+        s_scanReport = false;
+        sendScanReport();
+    }
+
     static uint32_t lastSend = 0;
 
     // Republish the latest channels at a steady rate so EdgeTX's trainer input

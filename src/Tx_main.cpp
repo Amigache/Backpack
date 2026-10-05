@@ -298,10 +298,18 @@ void ProcessMSPPacketFromTX(mspPacket_t *packet)
 #endif
     break;
 
+  case MSP_ELRS_BACKPACK_TRAINER_SCAN:
+    DBGLN("Processing MSP_ELRS_BACKPACK_TRAINER_SCAN...");
+#if defined(HAS_BLE_TRAINER)
+    bleTrainerScan();
+#endif
+    break;
+
   case MSP_ELRS_BACKPACK_TRAINER_PAIR:
     DBGLN("Processing MSP_ELRS_BACKPACK_TRAINER_PAIR...");
 #if defined(HAS_BLE_TRAINER)
-    bleTrainerPair();
+    if (packet->payloadSize >= 7)
+      bleTrainerPairMac(packet->payload, packet->payload[6]);
 #endif
     break;
 

@@ -19,8 +19,11 @@ bool bleTrainerConnected();
 // Enable/disable the BLE trainer transport at runtime.
 void bleTrainerSetEnabled(bool enable);
 
-// Start pairing mode: scan and pair with the strongest advertiser (manual pairing).
-void bleTrainerPair();
+// Start a scan and report the found devices to the module (manual pairing).
+void bleTrainerScan();
+
+// Pair with a specific device chosen from the scan list.
+void bleTrainerPairMac(const uint8_t mac[6], uint8_t type);
 
 // Forget the paired peer and go back to pairing mode (button long press).
 void bleTrainerForgetPeer();
