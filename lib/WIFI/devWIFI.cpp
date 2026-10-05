@@ -380,6 +380,7 @@ static void GetConfiguration(AsyncWebServerRequest *request)
 #endif
 #if defined(HAS_BLE_TRAINER)
   json["config"]["trainer"]["paired"] = config.IsTrainerPaired();
+  json["config"]["trainer"]["enabled"] = config.GetBleTrainerEnable();
   json["config"]["trainer"]["interval"] = config.GetTrainerIntervalMs();
   const uint8_t *trainerMac = config.GetTrainerPeerMac();
   char trainerMacStr[18];
@@ -723,6 +724,16 @@ static void WebUpdateSetTrainer(AsyncWebServerRequest *request)
   if (request->hasArg("forget") && request->arg("forget") != "0")
   {
     config.ClearTrainerPeerMac();
+  }
+  if (request->hasArg("enabled"))
+  {
+    const bool enable = request->arg("enabled") != "0";
+    config.SetBleTrainerEnable(enable);
+    bleTrainerSetEnabled(enable);
+  }
+  if (request->hasArg("pair") && request->arg("pair") != "0")
+  {
+    bleTrainerPair();
   }
   config.Commit();
   DBGLN("Bluetooth trainer configuration updated");

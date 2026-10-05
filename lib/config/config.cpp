@@ -73,6 +73,7 @@ TxBackpackConfig::SetDefaults()
     // enough not to throttle the stream below the device's own 80 Hz rate.
     m_config.trainerIntervalMs = TRAINER_DEFAULT_INTERVAL_MS;
     m_config.trainerSource = TRAINER_SOURCE_AUTO;
+    m_config.bleTrainerEnable = 0;
     m_modified = true;
     Commit();
 }
@@ -176,6 +177,13 @@ void
 TxBackpackConfig::SetTrainerSource(trainer_source_t source)
 {
     m_config.trainerSource = source;
+    m_modified = true;
+}
+
+void
+TxBackpackConfig::SetBleTrainerEnable(bool enable)
+{
+    m_config.bleTrainerEnable = enable ? 1 : 0;
     m_modified = true;
 }
 #endif

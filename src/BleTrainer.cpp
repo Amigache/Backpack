@@ -119,7 +119,9 @@ static NimBLEClient *s_client = nullptr;
 static volatile bool s_connected = false;
 static volatile bool s_found = false;
 static volatile bool s_forget = false;
-static int s_failCount = 0;
+static volatile bool s_pairing = false;
+static volatile bool s_enabled = false;
+static bool s_initialized = false;
 static NimBLEAddress s_foundAddr;
 static int s_bestRssi = -127;
 
@@ -213,6 +215,16 @@ static void bleTask(void *)
 {
     for (;;)
     {
+        if (!s_enabled)
+        {
+            // Transport disabled: drop any connection and stay idle.
+            if (s_client && s_client->isConnected())
+                s_client->disconnect();
+            s_connected = false;
+            vTaskDelay(pdMS_TO_TICKS(500));
+            continue;
+        }
+
         if (s_forget)
         {
             s_forget = false;
@@ -228,23 +240,15 @@ static void bleTask(void *)
             bool ok = false;
             if (config.IsTrainerPaired())
             {
+                // Auto-connect to the paired peer. Pairing is manual, so the
+                // stored MAC is never dropped automatically.
                 NimBLEAddress addr(config.GetTrainerPeerMac(), config.GetTrainerPeerType());
                 ok = s_client->connect(addr);
-                if (ok)
-                {
-                    s_failCount = 0;
-                }
-                else if (++s_failCount >= 2)
-                {
-                    // Peer unreachable: drop it and go back to pairing mode.
-                    s_failCount = 0;
-                    config.ClearTrainerPeerMac();
-                    config.Commit();
-                }
             }
-            else
+            else if (s_pairing)
             {
-                // Only scan while there is no paired peer (pairing mode).
+                // Manual pairing: scan and pair with the strongest advertiser.
+                s_pairing = false;
                 s_found = false;
                 s_bestRssi = -127;
                 s_scan->start(3, false);
@@ -263,6 +267,12 @@ static void bleTask(void *)
                         config.Commit();
                     }
                 }
+            }
+            else
+            {
+                // Not paired and not asked to pair: idle.
+                vTaskDelay(pdMS_TO_TICKS(500));
+                continue;
             }
 
             if (ok && subscribeTrainer())
@@ -290,6 +300,10 @@ static void bleTask(void *)
 
 static void initBle()
 {
+    if (s_initialized)
+        return;
+    s_initialized = true;
+
     // When the backpack also runs the MAVLink WiFi AP, give the radio arbiter a
     // WiFi preference and use a lower BLE TX power: on the Nomad the module's PA
     // is next to the C3, and the added BLE airtime/power destabilized the AP.
@@ -311,6 +325,18 @@ static void initBle()
     setInitialConnParams();
     s_client->setClientCallbacks(new TrainerClientCb(), true);
     xTaskCreate(bleTask, "bletrainer", 4096, nullptr, 1, nullptr);
+}
+
+void bleTrainerSetEnabled(bool enable)
+{
+    s_enabled = enable;
+    if (enable && !s_initialized)
+        initBle();
+}
+
+void bleTrainerPair()
+{
+    s_pairing = true;
 }
 
 void bleTrainerForgetPeer()
@@ -340,7 +366,10 @@ static int start()
     // WiFi service. That mode starts WiFi without initializing ESP-NOW.
     if (connectionState == wifiUpdate && wifiService != WIFI_SERVICE_MAVLINK_TX)
         return DURATION_NEVER;
-    initBle();
+    // Lazy init: with the transport disabled we never touch the BLE stack.
+    s_enabled = config.GetBleTrainerEnable();
+    if (s_enabled)
+        initBle();
     return DURATION_IMMEDIATELY;
 }
 

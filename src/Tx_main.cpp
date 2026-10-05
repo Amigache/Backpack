@@ -217,6 +217,20 @@ void HandleConfigMsg(mspPacket_t *packet)
       rebootTime = millis();
       break;
     }
+
+    case MSP_ELRS_BACKPACK_CONFIG_BLE_TRAINER:
+    {
+      const bool enable = value != 0;
+      if (enable != config.GetBleTrainerEnable())
+      {
+        config.SetBleTrainerEnable(enable);
+        config.Commit();
+#if defined(HAS_BLE_TRAINER)
+        bleTrainerSetEnabled(enable);
+#endif
+      }
+      break;
+    }
   }
 }
 
@@ -276,6 +290,13 @@ void ProcessMSPPacketFromTX(mspPacket_t *packet)
     DBGLN("Processing MSP_ELRS_BACKPACK_FORGET_TRAINER...");
 #if defined(HAS_BLE_TRAINER)
     bleTrainerForgetPeer();
+#endif
+    break;
+
+  case MSP_ELRS_BACKPACK_TRAINER_PAIR:
+    DBGLN("Processing MSP_ELRS_BACKPACK_TRAINER_PAIR...");
+#if defined(HAS_BLE_TRAINER)
+    bleTrainerPair();
 #endif
     break;
 

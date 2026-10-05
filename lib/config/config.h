@@ -7,7 +7,7 @@
 #define VRX_BACKPACK_CONFIG_MAGIC   (0b10U << 30)
 #define TIMER_BACKPACK_CONFIG_MAGIC (0b11U << 30)
 
-#define TX_BACKPACK_CONFIG_VERSION      6
+#define TX_BACKPACK_CONFIG_VERSION      7
 #define VRX_BACKPACK_CONFIG_VERSION     5
 #define TIMER_BACKPACK_CONFIG_VERSION   3
 
@@ -54,6 +54,7 @@ typedef struct {
     uint8_t           trainerPeerType;   // NimBLE address type
     uint16_t          trainerIntervalMs; // requested BLE connection interval (ms)
     trainer_source_t  trainerSource;     // trainer source selection
+    uint8_t           bleTrainerEnable;  // 0/1, BLE trainer transport enabled
 } tx_backpack_config_t;
 
 class TxBackpackConfig
@@ -77,6 +78,7 @@ public:
     uint16_t GetTrainerIntervalMs() { return m_config.trainerIntervalMs; }
     trainer_source_t GetTrainerSource() { return m_config.trainerSource; }
     bool     IsTrainerPaired() const;
+    bool     GetBleTrainerEnable() { return m_config.bleTrainerEnable != 0; }
 
     // Setters
     void SetStorageProvider(ELRS_EEPROM *eeprom);
@@ -94,6 +96,7 @@ public:
     void ClearTrainerPeerMac();
     void SetTrainerIntervalMs(uint16_t ms);
     void SetTrainerSource(trainer_source_t source);
+    void SetBleTrainerEnable(bool enable);
 
 private:
     tx_backpack_config_t    m_config;

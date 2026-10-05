@@ -55,14 +55,37 @@ function initBleTrainer() {
         return;
     form.addEventListener('submit', (e) => { e.preventDefault(); btSubmit(false); });
     _('bt_forget').addEventListener('click', (e) => { e.preventDefault(); btSubmit(true); });
+    _('bt_pair').addEventListener('click', (e) => { e.preventDefault(); btPair(); });
     _('bt_source').addEventListener('change', () => btToggleBleSettings(_('bt_source').value));
+}
+
+// Starts manual pairing (scans and pairs with the strongest trainer).
+function btPair() {
+    const xmlhttp = new XMLHttpRequest();
+    xmlhttp.onreadystatechange = function () {
+        if (this.readyState != 4)
+            return;
+        cuteAlert({
+            type: this.status == 200 ? 'success' : 'error',
+            title: 'Bluetooth Trainer',
+            message: this.status == 200 ? 'Pairing started (strongest device)' : 'An error occurred starting pairing'
+        });
+    };
+    xmlhttp.open('POST', '/settrainer', true);
+    xmlhttp.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+    xmlhttp.send(new URLSearchParams({ pair: 1 }));
 }
 
 // Posts the FrSky BLE Trainer form (or a Forget request) and updates the page
 // in place, so no manual reload is needed.
 function btSubmit(clearPeer) {
-    const body = clearPeer ? new URLSearchParams({ forget: 1 })
-                           : new URLSearchParams(new FormData(_('bt_form')));
+    let body;
+    if (clearPeer) {
+        body = new URLSearchParams({ forget: 1 });
+    } else {
+        body = new URLSearchParams(new FormData(_('bt_form')));
+        body.set('enabled', _('bt_enabled').checked ? '1' : '0');
+    }
     const xmlhttp = new XMLHttpRequest();
     xmlhttp.onreadystatechange = function () {
         if (this.readyState != 4)
@@ -191,6 +214,7 @@ function updateConfig(data) {
         const bt = config.trainer;
         _('bt_status').textContent = bt.paired ? 'Paired' : 'Not paired';
         _('bt_mac').textContent = bt.paired ? bt.mac : '-';
+        _('bt_enabled').checked = !!bt.enabled;
         _('bt_interval').value = bt.interval;
         _('bt_source').value = bt.source;
         btToggleBleSettings(bt.source);

@@ -156,6 +156,9 @@
 				HeadTracker). Both respect the radio's HT Enable; use the selector to choose which one
 				is used.</p>
 				<form id="bt_form" class="mui-form">
+					<div class="mui-checkbox">
+						<label><input type="checkbox" id="bt_enabled" name="enabled" value="1"> Enable BLE trainer</label>
+					</div>
 					<div class="mui-select">
 						<select id="bt_source" name="source">
 							<option value="auto">Auto (Bluetooth if connected, else native)</option>
@@ -183,7 +186,8 @@
 						<p>The trainer sends one frame per Bluetooth connection event, so a low
 						interval is what keeps the movement fluid. 8 ms suits a HeadTracker; higher
 						values only slow the stream down.</p>
-						<button type="button" id="bt_forget" class="mui-btn mui-btn--danger">Forget (re-pair on next boot)</button>
+						<button type="button" id="bt_pair" class="mui-btn mui-btn--primary">Pair (strongest)</button>
+						<button type="button" id="bt_forget" class="mui-btn mui-btn--danger">Forget</button>
 						<br/><br/>
 					</div>
 					<input type="submit" value="Save" class="mui-btn mui-btn--primary">

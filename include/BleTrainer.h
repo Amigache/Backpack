@@ -16,6 +16,12 @@ extern device_t BleTrainer_device;
 // True while a trainer is connected over BLE.
 bool bleTrainerConnected();
 
+// Enable/disable the BLE trainer transport at runtime.
+void bleTrainerSetEnabled(bool enable);
+
+// Start pairing mode: scan and pair with the strongest advertiser (manual pairing).
+void bleTrainerPair();
+
 // Forget the paired peer and go back to pairing mode (button long press).
 void bleTrainerForgetPeer();
 
