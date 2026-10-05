@@ -387,10 +387,7 @@ static void GetConfiguration(AsyncWebServerRequest *request)
   snprintf(trainerMacStr, sizeof(trainerMacStr), "%02X:%02X:%02X:%02X:%02X:%02X",
            trainerMac[0], trainerMac[1], trainerMac[2], trainerMac[3], trainerMac[4], trainerMac[5]);
   json["config"]["trainer"]["mac"] = trainerMacStr;
-  const char *trainerSource = "auto";
-  if (config.GetTrainerSource() == TRAINER_SOURCE_ESPNOW) trainerSource = "native";
-  else if (config.GetTrainerSource() == TRAINER_SOURCE_BLE) trainerSource = "ble";
-  json["config"]["trainer"]["source"] = trainerSource;
+  json["config"]["trainer"]["source"] = (config.GetHtSource() == HT_SOURCE_BLE) ? "ble" : "native";
   json["config"]["trainer"]["boots"] = s_bootCount;
   json["config"]["trainer"]["lastreset"] = resetReasonName(s_thisReset);
   json["config"]["trainer"]["linked"] = bleTrainerConnected();
@@ -714,12 +711,7 @@ static void WebUpdateSetTrainer(AsyncWebServerRequest *request)
   if (request->hasArg("source"))
   {
     String source = request->arg("source");
-    if (source == "native" || source == "espnow")
-      config.SetTrainerSource(TRAINER_SOURCE_ESPNOW);
-    else if (source == "ble")
-      config.SetTrainerSource(TRAINER_SOURCE_BLE);
-    else
-      config.SetTrainerSource(TRAINER_SOURCE_AUTO);
+    config.SetHtSource(source == "ble" ? HT_SOURCE_BLE : HT_SOURCE_NATIVE);
   }
   if (request->hasArg("forget") && request->arg("forget") != "0")
   {

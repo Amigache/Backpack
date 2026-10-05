@@ -390,7 +390,7 @@ static int timeout()
     // enable MSP. In that service, forward BLE data and let the TX module enforce
     // its own enable/override state.
     const bool trainerOutputEnabled = headTrackingEnabled || wifiService == WIFI_SERVICE_MAVLINK_TX;
-    if (config.GetTrainerSource() != TRAINER_SOURCE_ESPNOW && trainerOutputEnabled && s_connected &&
+    if (config.GetHtSource() == HT_SOURCE_BLE && trainerOutputEnabled && s_connected &&
         s_gotFrame && (millis() - lastSend >= 20))
     {
         lastSend = millis();

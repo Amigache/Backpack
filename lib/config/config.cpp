@@ -72,7 +72,7 @@ TxBackpackConfig::SetDefaults()
     // update rate is capped at one frame per connection event. Keep this small
     // enough not to throttle the stream below the device's own 80 Hz rate.
     m_config.trainerIntervalMs = TRAINER_DEFAULT_INTERVAL_MS;
-    m_config.trainerSource = TRAINER_SOURCE_AUTO;
+    m_config.htSource = HT_SOURCE_NATIVE;
     m_config.bleTrainerEnable = 0;
     m_modified = true;
     Commit();
@@ -174,9 +174,9 @@ TxBackpackConfig::SetTrainerIntervalMs(uint16_t ms)
 }
 
 void
-TxBackpackConfig::SetTrainerSource(trainer_source_t source)
+TxBackpackConfig::SetHtSource(ht_source_t source)
 {
-    m_config.trainerSource = source;
+    m_config.htSource = source;
     m_modified = true;
 }
 

@@ -111,10 +111,8 @@ void ProcessMSPPacketFromPeer(mspPacket_t *packet)
     case MSP_ELRS_BACKPACK_SET_PTR: {
       DBGLN("MSP_ELRS_BACKPACK_SET_PTR...");
 #if defined(HAS_BLE_TRAINER)
-      // BLE is the active source when explicitly selected, or (in Auto) while connected.
-      const trainer_source_t trainerSrc = config.GetTrainerSource();
-      if (trainerSrc == TRAINER_SOURCE_BLE ||
-          (trainerSrc == TRAINER_SOURCE_AUTO && bleTrainerConnected()))
+      // Only forward the native (ESP-NOW) source when it is the selected HT source.
+      if (config.GetHtSource() == HT_SOURCE_BLE)
         break;
 #endif
       msp.sendPacket(packet, &Serial);
@@ -229,6 +227,13 @@ void HandleConfigMsg(mspPacket_t *packet)
         bleTrainerSetEnabled(enable);
 #endif
       }
+      break;
+    }
+
+    case MSP_ELRS_BACKPACK_CONFIG_HT_SOURCE:
+    {
+      config.SetHtSource(value != 0 ? HT_SOURCE_BLE : HT_SOURCE_NATIVE);
+      config.Commit();
       break;
     }
   }

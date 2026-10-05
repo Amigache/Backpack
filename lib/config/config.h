@@ -30,12 +30,11 @@ typedef enum {
     BACKPACK_TELEM_MODE_BLUETOOTH,
 } telem_mode_t;
 
-// Trainer source selection
+// HT source selection
 typedef enum {
-    TRAINER_SOURCE_AUTO,    // BLE if connected, otherwise ESP-NOW (VRX)
-    TRAINER_SOURCE_ESPNOW,  // ESP-NOW (VRX) only
-    TRAINER_SOURCE_BLE,     // BLE only
-} trainer_source_t;
+    HT_SOURCE_NATIVE,   // native ESP-NOW (VRX) only
+    HT_SOURCE_BLE,      // BLE trainer only
+} ht_source_t;
 
 #if defined(TARGET_TX_BACKPACK)
 
@@ -53,7 +52,7 @@ typedef struct {
     uint8_t           trainerPeerMac[6];
     uint8_t           trainerPeerType;   // NimBLE address type
     uint16_t          trainerIntervalMs; // requested BLE connection interval (ms)
-    trainer_source_t  trainerSource;     // trainer source selection
+    ht_source_t       htSource;          // HT source selection
     uint8_t           bleTrainerEnable;  // 0/1, BLE trainer transport enabled
 } tx_backpack_config_t;
 
@@ -76,7 +75,7 @@ public:
     uint8_t *GetTrainerPeerMac() { return m_config.trainerPeerMac; }
     uint8_t  GetTrainerPeerType() { return m_config.trainerPeerType; }
     uint16_t GetTrainerIntervalMs() { return m_config.trainerIntervalMs; }
-    trainer_source_t GetTrainerSource() { return m_config.trainerSource; }
+    ht_source_t GetHtSource() { return m_config.htSource; }
     bool     IsTrainerPaired() const;
     bool     GetBleTrainerEnable() { return m_config.bleTrainerEnable != 0; }
 
@@ -95,7 +94,7 @@ public:
     void SetTrainerPeerType(uint8_t type);
     void ClearTrainerPeerMac();
     void SetTrainerIntervalMs(uint16_t ms);
-    void SetTrainerSource(trainer_source_t source);
+    void SetHtSource(ht_source_t source);
     void SetBleTrainerEnable(bool enable);
 
 private:
