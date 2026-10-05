@@ -700,39 +700,6 @@ static void WebUpdateSetMavLink(AsyncWebServerRequest *request)
 }
 #endif
 
-#if defined(HAS_BLE_TRAINER)
-static void WebUpdateSetTrainer(AsyncWebServerRequest *request)
-{
-  if (request->hasArg("interval"))
-  {
-    int interval = request->arg("interval").toInt();
-    config.SetTrainerIntervalMs((uint16_t)constrain(interval, 7, 1000));
-  }
-  if (request->hasArg("source"))
-  {
-    String source = request->arg("source");
-    config.SetHtSource(source == "ble" ? HT_SOURCE_BLE : HT_SOURCE_NATIVE);
-  }
-  if (request->hasArg("forget") && request->arg("forget") != "0")
-  {
-    config.ClearTrainerPeerMac();
-  }
-  if (request->hasArg("enabled"))
-  {
-    const bool enable = request->arg("enabled") != "0";
-    config.SetBleTrainerEnable(enable);
-    bleTrainerSetEnabled(enable);
-  }
-  if (request->hasArg("pair") && request->arg("pair") != "0")
-  {
-    bleTrainerPair();
-  }
-  config.Commit();
-  DBGLN("Bluetooth trainer configuration updated");
-  request->send(200, "text/plain", "Bluetooth trainer settings saved");
-}
-#endif
-
 static void wifiOff()
 {
   wifiStarted = false;
@@ -859,9 +826,6 @@ static void startServices()
   server.on("/sethome", WebUpdateSetHome);
   #if defined(MAVLINK_ENABLED)
   server.on("/setmavlink", WebUpdateSetMavLink);
-  #endif
-  #if defined(HAS_BLE_TRAINER)
-  server.on("/settrainer", HTTP_POST, WebUpdateSetTrainer);
   #endif
   server.on("/forget", WebUpdateForget);
   server.on("/connect", WebUpdateConnect);

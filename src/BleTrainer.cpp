@@ -121,6 +121,7 @@ static volatile bool s_found = false;
 static volatile bool s_forget = false;
 static volatile bool s_pairing = false;
 static volatile bool s_enabled = false;
+static volatile bool s_macReport = true;
 static bool s_initialized = false;
 static NimBLEAddress s_foundAddr;
 static int s_bestRssi = -127;
@@ -230,6 +231,7 @@ static void bleTask(void *)
             s_forget = false;
             config.ClearTrainerPeerMac();
             config.Commit();
+            s_macReport = true;
             if (s_client->isConnected())
                 s_client->disconnect();
             s_connected = false;
@@ -265,6 +267,7 @@ static void bleTask(void *)
                         config.SetTrainerPeerMac(mac);
                         config.SetTrainerPeerType(s_foundAddr.getType());
                         config.Commit();
+                        s_macReport = true;
                     }
                 }
             }
@@ -378,8 +381,26 @@ static int event()
     return DURATION_IGNORE;
 }
 
+static void sendTrainerMac()
+{
+    mspPacket_t packet;
+    packet.reset();
+    packet.makeCommand();
+    packet.function = MSP_ELRS_BACKPACK_TRAINER_MAC;
+    const uint8_t *mac = config.GetTrainerPeerMac();
+    for (int i = 0; i < 6; i++)
+        packet.addByte(mac[i]);
+    msp.sendPacket(&packet, &Serial);
+}
+
 static int timeout()
 {
+    if (s_macReport)
+    {
+        s_macReport = false;
+        sendTrainerMac();
+    }
+
     static uint32_t lastSend = 0;
 
     // Republish the latest channels at a steady rate so EdgeTX's trainer input
