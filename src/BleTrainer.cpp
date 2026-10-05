@@ -122,6 +122,7 @@ static volatile bool s_enabled = false;
 static bool s_initialized = false;
 static volatile bool s_scanRequest = false;
 static volatile bool s_scanReport = false;
+static volatile bool s_stateReport = true;
 static volatile bool s_pairRequest = false;
 static uint8_t s_pairMac[6];
 static uint8_t s_pairType = 0;
@@ -249,6 +250,7 @@ static void bleTask(void *)
             s_forget = false;
             config.ClearTrainerPeerMac();
             config.Commit();
+            s_stateReport = true;
             if (s_client->isConnected())
                 s_client->disconnect();
             s_connected = false;
@@ -262,7 +264,7 @@ static void bleTask(void *)
                 s_client->disconnect();
             s_connected = false;
             s_scanCount = 0;
-            s_scan->start(3, false);
+            s_scan->start(1, false);
             s_scanReport = true;
             continue;
         }
@@ -280,6 +282,7 @@ static void bleTask(void *)
                 config.SetTrainerPeerMac(s_pairMac);
                 config.SetTrainerPeerType(s_pairType);
                 config.Commit();
+                s_stateReport = true;
                 s_gotFrame = false;
                 s_connected = true;
                 // The trainer requests its own parameters from its connection
@@ -434,8 +437,26 @@ static void sendScanReport()
     msp.sendPacket(&packet, &Serial);
 }
 
+static void sendTrainerState()
+{
+    mspPacket_t packet;
+    packet.reset();
+    packet.makeCommand();
+    packet.function = MSP_ELRS_BACKPACK_TRAINER_STATE;
+    const uint8_t *mac = config.GetTrainerPeerMac();
+    for (int i = 0; i < 6; i++)
+        packet.addByte(mac[i]);
+    msp.sendPacket(&packet, &Serial);
+}
+
 static int timeout()
 {
+    if (s_stateReport)
+    {
+        s_stateReport = false;
+        sendTrainerState();
+    }
+
     if (s_scanReport)
     {
         s_scanReport = false;
